@@ -52,7 +52,7 @@ jobs:
           git config --global user.email "actions@github.com"
           git add Dockerfile
           git commit -m "Update Dockerfile for feature branch ${{ steps.get-branch.outputs.branch_name }}"
-          git remote set-url origin https://${{ secrets.PAT_TOKEN }}@github.com/<YOUR_ORG>/hotwax-oms-docker-config.git
+          git remote set-url origin https://${{ secrets.PAT_TOKEN }}@github.com/G0V1NDK/GIT-PART-1.git
           git push origin ${{ steps.get-branch.outputs.branch_name }}
 
       - name: Post success comment on original PR
