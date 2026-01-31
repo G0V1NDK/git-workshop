@@ -1,0 +1,71 @@
+name: Handle Feature Branch Response
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  process:
+    runs-on: ubuntu-latest
+    if: |
+      github.event.issue.pull_request && 
+      github.event.comment.user.login == github.event.issue.user.login && 
+      contains(github.event.comment.body, 'yes') && 
+      github.actor != 'github-actions[bot]'
+    steps:
+      - name: Checkout original repo to get PR details
+        uses: actions/checkout@v4
+
+      - name: Get PR branch name
+        id: get-branch
+        run: |
+          PR_NUMBER=${{ github.event.issue.number }}
+          BRANCH=$(gh pr view $PR_NUMBER --json headRefName --jq '.headRefName')
+          echo "branch_name=$BRANCH" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Clone target repo
+        run: |
+          git clone https://github.com/G0V1NDK/GIT-PART-1.git target-repo
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}  # Use PAT if needed for private repo
+
+      - name: Create and checkout new branch in target repo
+        working-directory: target-repo
+        run: |
+          git checkout -b ${{ steps.get-branch.outputs.branch_name }}
+      
+      - name: Update Dockerfile with feature branch updation
+        working-directory: target-repo
+        run: |
+          # Placeholder for your rules: Add a line to Dockerfile
+          echo "ENV FEATURE_ENABLED=true" >> Dockerfile
+          # Replace with your actual changes, e.g.:
+          # sed -i 's/old-value/new-value/g' Dockerfile
+          # or more complex logic
+
+      - name: Commit and push changes
+        working-directory: target-repo
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git add Dockerfile
+          git commit -m "Update Dockerfile for feature branch ${{ steps.get-branch.outputs.branch_name }}"
+          git remote set-url origin https://${{ secrets.PAT_TOKEN }}@github.com/<YOUR_ORG>/hotwax-oms-docker-config.git
+          git push origin ${{ steps.get-branch.outputs.branch_name }}
+
+      - name: Post success comment on original PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.issue.number;
+            const branch_name = '${{ steps.get-branch.outputs.branch_name }}';
+            const comment = `Feature branch '${branch_name}' created successfully in hotwax-oms-docker-config repo!`;
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number,
+              body: comment
+            });
